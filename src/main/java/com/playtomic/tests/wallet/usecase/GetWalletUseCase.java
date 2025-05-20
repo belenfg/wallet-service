@@ -2,10 +2,12 @@ package com.playtomic.tests.wallet.usecase;
 
 import com.playtomic.tests.wallet.domain.Wallet;
 import com.playtomic.tests.wallet.domain.WalletRepository;
+import org.springframework.stereotype.Service;
 
 /**
  * Use case for retrieving a Wallet by its ID.
  */
+@Service
 public class GetWalletUseCase {
 
     private final WalletRepository walletRepository;

@@ -2,12 +2,14 @@ package com.playtomic.tests.wallet.usecase;
 
 import com.playtomic.tests.wallet.domain.Wallet;
 import com.playtomic.tests.wallet.domain.WalletRepository;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
 /**
  * Use case for topping up a Wallet balance.
  */
+@Service
 public class TopUpWalletUseCase {
 
     private final WalletRepository walletRepository;
