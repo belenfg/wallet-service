@@ -1,7 +1,9 @@
 package com.playtomic.tests.wallet.api;
 
-import com.playtomic.tests.wallet.usecase.*;
-import com.playtomic.tests.wallet.domain.*;
+import com.playtomic.tests.wallet.service.StripeAmountTooSmallException;
+import com.playtomic.tests.wallet.usecase.GetWalletUseCase;
+import com.playtomic.tests.wallet.usecase.TopUpWalletUseCase;
+import com.playtomic.tests.wallet.domain.Wallet;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -49,10 +51,14 @@ class WalletControllerTest {
     @Test
     void topUp_success() throws Exception {
         Wallet wallet = new Wallet(new BigDecimal("100.00"));
-        given(topUpWalletUseCase.execute(eq(1L), any(BigDecimal.class)))
+        given(topUpWalletUseCase.execute(eq(1L), eq(new BigDecimal("50.00")), eq("4242 4242 4242 4242")))
                 .willReturn(wallet);
 
-        String json = "{ \"walletId\": 1, \"amount\": 50.00 }";
+        String json = "{"
+                + "\"walletId\":1,"
+                + "\"amount\":50.00,"
+                + "\"creditCardNumber\":\"4242 4242 4242 4242\""
+                + "}";
 
         mockMvc.perform(post("/topup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -63,15 +69,36 @@ class WalletControllerTest {
 
     @Test
     void topUp_invalidAmount() throws Exception {
-        given(topUpWalletUseCase.execute(eq(1L), any(BigDecimal.class)))
+        given(topUpWalletUseCase.execute(eq(1L), eq(BigDecimal.ZERO), anyString()))
                 .willThrow(new IllegalArgumentException("Top-up amount must be positive"));
 
-        String json = "{ \"walletId\": 1, \"amount\": 0 }";
+        String json = "{"
+                + "\"walletId\":1,"
+                + "\"amount\":0,"
+                + "\"creditCardNumber\":\"4242 4242 4242 4242\""
+                + "}";
 
         mockMvc.perform(post("/topup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Top-up amount must be positive"));
+    }
+
+    @Test
+    void topUp_paymentFails() throws Exception {
+        given(topUpWalletUseCase.execute(eq(1L), eq(new BigDecimal("5.00")), eq("4242 4242 4242 4242")))
+                .willThrow(new StripeAmountTooSmallException());
+
+        String json = "{"
+                + "\"walletId\":1,"
+                + "\"amount\":5.00,"
+                + "\"creditCardNumber\":\"4242 4242 4242 4242\""
+                + "}";
+
+        mockMvc.perform(post("/topup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest());
     }
 }

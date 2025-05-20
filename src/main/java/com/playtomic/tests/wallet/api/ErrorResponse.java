@@ -1,6 +1,5 @@
 package com.playtomic.tests.wallet.api;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 

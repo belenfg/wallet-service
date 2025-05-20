@@ -7,4 +7,5 @@ import java.math.BigDecimal;
 public class TopUpRequest {
     private Long walletId;
     private BigDecimal amount;
+    private String creditCardNumber;
 }
