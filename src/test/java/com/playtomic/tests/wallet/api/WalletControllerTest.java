@@ -32,7 +32,7 @@ class WalletControllerTest {
         Wallet wallet = new Wallet(new BigDecimal("50.00"));
         given(getWalletUseCase.execute(1L)).willReturn(wallet);
 
-        mockMvc.perform(get("/wallets/1"))
+        mockMvc.perform(get("/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(50.00));
     }
@@ -42,7 +42,7 @@ class WalletControllerTest {
         given(getWalletUseCase.execute(1L))
                 .willThrow(new IllegalArgumentException("Wallet not found"));
 
-        mockMvc.perform(get("/wallets/1"))
+        mockMvc.perform(get("/1"))
                 .andExpect(status().isNotFound());
     }
 
@@ -54,7 +54,7 @@ class WalletControllerTest {
 
         String json = "{ \"walletId\": 1, \"amount\": 50.00 }";
 
-        mockMvc.perform(post("/wallets/topup")
+        mockMvc.perform(post("/topup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -68,7 +68,7 @@ class WalletControllerTest {
 
         String json = "{ \"walletId\": 1, \"amount\": 0 }";
 
-        mockMvc.perform(post("/wallets/topup")
+        mockMvc.perform(post("/topup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
