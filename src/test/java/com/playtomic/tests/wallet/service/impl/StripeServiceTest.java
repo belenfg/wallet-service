@@ -1,36 +1,70 @@
 package com.playtomic.tests.wallet.service.impl;
 
-
 import com.playtomic.tests.wallet.service.StripeAmountTooSmallException;
-import com.playtomic.tests.wallet.service.StripeServiceException;
+import com.playtomic.tests.wallet.service.StripeRestTemplateResponseErrorHandler;
 import com.playtomic.tests.wallet.service.StripeService;
-
-import org.junit.jupiter.api.Assertions;
+import com.playtomic.tests.wallet.service.StripeServiceException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.net.URI;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
+
 /**
- * This test is failing with the current implementation.
- *
- * How would you test this?
+ * Tests StripeService behavior:
+ * - Throws StripeAmountTooSmallException when amount < €10 before any HTTP interaction.
+ * - Uses MockRestServiceServer to simulate HTTP 200 OK for amounts >= €10, ensuring success.
  */
 public class StripeServiceTest {
 
-    URI testUri = URI.create("http://how-would-you-test-me.localhost");
-    StripeService s = new StripeService(testUri, testUri, new RestTemplateBuilder());
+    private StripeService stripeService;
+    private MockRestServiceServer mockServer;
 
-    @Test
-    public void test_exception() {
-        Assertions.assertThrows(StripeAmountTooSmallException.class, () -> {
-            s.charge("4242 4242 4242 4242", new BigDecimal(5));
-        });
+    @BeforeEach
+    void setUp() {
+        // 1) Creating RestTemplate for tests
+        RestTemplate testTemplate = new RestTemplateBuilder()
+                .errorHandler(new StripeRestTemplateResponseErrorHandler())
+                .build();
+
+        // 2) Creating mockServer from RestTemplate
+        this.mockServer = MockRestServiceServer.createServer(testTemplate);
+
+        // 3) Instantiating original StripeService
+        URI chargeUri = URI.create("http://how-would-you-test-me.localhost/charge");
+        URI refundUri = URI.create("http://how-would-you-test-me.localhost/refund");
+        this.stripeService = new StripeService(chargeUri, refundUri, new RestTemplateBuilder());
+
+        // 4) Injecting test RestTemplate in stripeService
+        ReflectionTestUtils.setField(stripeService, "restTemplate", testTemplate);
     }
 
     @Test
-    public void test_ok() throws StripeServiceException {
-        s.charge("4242 4242 4242 4242", new BigDecimal(15));
+    void test_exception() {
+        assertThrows(StripeAmountTooSmallException.class,
+                () -> stripeService.charge("4242 4242 4242 4242", new BigDecimal("5")));
+    }
+
+    @Test
+    void test_ok() throws StripeServiceException {
+        mockServer.expect(requestTo("http://how-would-you-test-me.localhost/charge"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("{\"id\":\"pay_123\",\"amount\":15}",
+                        MediaType.APPLICATION_JSON));
+
+        stripeService.charge("4242 4242 4242 4242", new BigDecimal("15"));
+
+        mockServer.verify();
     }
 }
