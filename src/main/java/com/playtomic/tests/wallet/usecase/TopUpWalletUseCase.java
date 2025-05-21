@@ -2,8 +2,8 @@ package com.playtomic.tests.wallet.usecase;
 
 import com.playtomic.tests.wallet.domain.Wallet;
 import com.playtomic.tests.wallet.domain.WalletRepository;
-import com.playtomic.tests.wallet.service.StripeService;
-import com.playtomic.tests.wallet.service.StripeServiceException;
+import com.playtomic.tests.wallet.service.PaymentException;
+import com.playtomic.tests.wallet.service.PaymentGateway;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -12,12 +12,12 @@ import java.math.BigDecimal;
 public class TopUpWalletUseCase {
 
     private final WalletRepository walletRepository;
-    private final StripeService stripeService;
+    private final PaymentGateway paymentGateway;
 
     public TopUpWalletUseCase(WalletRepository walletRepository,
-                              StripeService stripeService) {
+                              PaymentGateway paymentGateway) {
         this.walletRepository = walletRepository;
-        this.stripeService = stripeService;
+        this.paymentGateway = paymentGateway;
     }
 
     /**
@@ -27,8 +27,8 @@ public class TopUpWalletUseCase {
      * @param amount            the amount to add; must be positive
      * @param creditCardNumber  the credit card number to charge
      * @return the updated Wallet
-     * @throws IllegalArgumentException     if wallet not found or amount non-positive
-     * @throws StripeServiceException on payment failure
+     * @throws IllegalArgumentException if wallet not found or amount non-positive
+     * @throws PaymentException         on payment failure
      */
     public Wallet execute(Long id, BigDecimal amount, String creditCardNumber) {
         Wallet wallet = walletRepository.findById(id)
@@ -38,8 +38,8 @@ public class TopUpWalletUseCase {
             throw new IllegalArgumentException("Top-up amount must be positive");
         }
 
-        // Charge the card using StripeService
-        stripeService.charge(creditCardNumber, amount);
+        // Charge via abstract gateway
+        paymentGateway.charge(creditCardNumber, amount);
 
         wallet.topUp(amount);
         return walletRepository.save(wallet);

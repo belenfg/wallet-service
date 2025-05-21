@@ -2,9 +2,7 @@ package com.playtomic.tests.wallet.usecase;
 
 import com.playtomic.tests.wallet.domain.Wallet;
 import com.playtomic.tests.wallet.domain.WalletRepository;
-import com.playtomic.tests.wallet.service.StripeService;
-import com.playtomic.tests.wallet.service.StripeAmountTooSmallException;
-import com.playtomic.tests.wallet.service.StripeServiceException;
+import com.playtomic.tests.wallet.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -17,18 +15,18 @@ import static org.mockito.Mockito.*;
 class TopUpWalletUseCaseTest {
 
     private WalletRepository walletRepository;
-    private StripeService stripeService;
+    private PaymentGateway paymentGateway;
     private TopUpWalletUseCase topUpWalletUseCase;
 
     @BeforeEach
     void setUp() {
         walletRepository = mock(WalletRepository.class);
-        stripeService     = mock(StripeService.class);
-        topUpWalletUseCase = new TopUpWalletUseCase(walletRepository, stripeService);
+        paymentGateway = mock(PaymentGateway.class);
+        topUpWalletUseCase = new TopUpWalletUseCase(walletRepository, paymentGateway);
     }
 
     @Test
-    void shouldTopUpWhenValid() throws StripeServiceException {
+    void shouldTopUpWhenValid() {
         Wallet wallet = new Wallet(new BigDecimal("20.00"));
         when(walletRepository.findById(1L)).thenReturn(Optional.of(wallet));
         when(walletRepository.save(any(Wallet.class))).thenAnswer(i -> i.getArgument(0));
@@ -36,7 +34,7 @@ class TopUpWalletUseCaseTest {
         Wallet result = topUpWalletUseCase.execute(1L, new BigDecimal("30.00"), "4242 4242 4242 4242");
 
         assertEquals(new BigDecimal("50.00"), result.getBalance());
-        verify(stripeService).charge("4242 4242 4242 4242", new BigDecimal("30.00"));
+        verify(paymentGateway).charge("4242 4242 4242 4242", new BigDecimal("30.00"));
         verify(walletRepository).save(wallet);
     }
 
@@ -47,7 +45,7 @@ class TopUpWalletUseCaseTest {
         assertThrows(IllegalArgumentException.class, () ->
                 topUpWalletUseCase.execute(1L, BigDecimal.ZERO, "4242 4242 4242 4242")
         );
-        verifyNoInteractions(stripeService);
+        verifyNoInteractions(paymentGateway);
     }
 
     @Test
@@ -57,20 +55,20 @@ class TopUpWalletUseCaseTest {
         assertThrows(IllegalArgumentException.class, () ->
                 topUpWalletUseCase.execute(2L, new BigDecimal("10.00"), "4242 4242 4242 4242")
         );
-        verifyNoInteractions(stripeService);
+        verifyNoInteractions(paymentGateway);
     }
 
     @Test
-    void shouldPropagateStripeException() throws StripeServiceException {
+    void shouldPropagatePaymentException() {
         Wallet wallet = new Wallet(new BigDecimal("20.00"));
         when(walletRepository.findById(1L)).thenReturn(Optional.of(wallet));
-        // Throw exception with no-arg constructor
-        doThrow(new StripeAmountTooSmallException()).when(stripeService)
+        doThrow(new PaymentException("Payment failed")).when(paymentGateway)
                 .charge(anyString(), any(BigDecimal.class));
 
-        assertThrows(StripeAmountTooSmallException.class, () ->
+        PaymentException ex = assertThrows(PaymentException.class, () ->
                 topUpWalletUseCase.execute(1L, new BigDecimal("5.00"), "4242 4242 4242 4242")
         );
+        assertEquals("Payment failed", ex.getMessage());
         verify(walletRepository, never()).save(any(Wallet.class));
     }
 }
