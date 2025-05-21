@@ -52,7 +52,12 @@ public class StripeService {
      * @throws StripeServiceException
      */
     public Payment charge(@NonNull String creditCardNumber, @NonNull BigDecimal amount) throws StripeServiceException {
+        if (amount.compareTo(BigDecimal.TEN) < 0) {
+            throw new StripeAmountTooSmallException();
+        }
+
         ChargeRequest body = new ChargeRequest(creditCardNumber, amount);
+
         return restTemplate.postForObject(chargesUri, body, Payment.class);
     }
 
